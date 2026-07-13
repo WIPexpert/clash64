@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<title>Clash 64 — chess IRL</title>
+<meta name="theme-color" content="#0e1016" />
+<meta name="description" content="Clash 64 — Luma for chess players. Rated OTB games, chess clock, Chess ID, tournaments." />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Clash 64" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<style>
+  :root{
+    --bg:#0e1016; --bg2:#12141c; --card:#181b25; --card2:#1e2230;
+    --line:#262b3a; --line2:#333a4d;
+    --txt:#eef1f6; --mut:#9aa3b8; --dim:#6b7488;
+    --accent:#7cf0a8; --accent-d:#4bd589; --accent-ink:#062012;
+    --gold:#f3c969; --blue:#7cb8ff;
+    --danger:#ff6b6b;
+    /* clock owns its own high-contrast palette */
+    --clk-bg:#07080b; --clk-idle:#0f1219; --clk-idle-tx:#39404e;
+    --clk-run-a:#ffd23f; --clk-run-b:#f4b301; --clk-run-tx:#161200;
+    --r:18px; --r-sm:12px;
+    --safe-t:env(safe-area-inset-top); --safe-b:env(safe-area-inset-bottom);
+    --nav-h:64px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; overscroll-behavior:none; user-select:none;
+  }
+  #app{max-width:440px;margin:0 auto;min-height:100%;position:relative;}
+  svg{display:block;}
+  .view{display:none;padding:calc(var(--safe-t) + 12px) 18px calc(var(--nav-h) + var(--safe-b) + 28px);animation:fade .28s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ---- home header w/ profile name ---- */
+  .hbar{display:flex;align-items:center;justify-content:space-between;margin:6px 0 20px;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-d));display:grid;place-items:center;color:var(--accent-ink);font-size:20px;font-weight:900;box-shadow:0 4px 14px rgba(124,240,168,.28);}
+  .brand .bt{font-size:19px;font-weight:800;letter-spacing:-.3px;line-height:1;}
+  .brand .bt small{display:block;color:var(--mut);font-size:11.5px;font-weight:500;margin-top:3px;}
+  .me{display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .me .me-tx{text-align:right;line-height:1;}
+  .me .me-tx b{font-size:14px;font-weight:700;}
+  .me .me-tx small{display:block;color:var(--mut);font-size:11.5px;margin-top:3px;}
+  .avatar-sm{width:40px;height:40px;border-radius:50%;overflow:hidden;border:1.5px solid var(--line2);flex:0 0 auto;}
+  .avatar-sm img{width:100%;height:100%;object-fit:cover;}
+
+  .top{display:flex;align-items:center;justify-content:space-between;margin:6px 0 20px;}
+  .top h1{font-size:26px;font-weight:800;letter-spacing:-.5px;margin:0;}
+  .top .sub{color:var(--mut);font-size:13px;margin-top:2px;font-weight:500;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px;}
+  .sec-title{font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin:22px 2px 10px;}
+
+  /* ---- hero clock card ---- */
+  .hero-clock{position:relative;overflow:hidden;border-radius:var(--r);padding:20px;background:linear-gradient(140deg,#1b2740,#141824 70%);border:1px solid var(--line2);cursor:pointer;}
+  .hero-clock .glow{position:absolute;right:-40px;top:-40px;width:170px;height:170px;background:radial-gradient(circle,rgba(124,240,168,.20),transparent 70%);}
+  .hero-clock .lbl{display:flex;align-items:center;gap:7px;color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.7px;text-transform:uppercase;}
+  .hero-clock .big{font-variant-numeric:tabular-nums;font-size:46px;font-weight:800;letter-spacing:-1px;margin-top:10px;}
+  .hero-clock .hint{color:var(--mut);font-size:13px;margin-top:6px;}
+  .mini-pieces{position:absolute;right:18px;bottom:14px;font-size:36px;opacity:.45;letter-spacing:-5px;color:#cdd5e6;}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:16px;border-radius:14px;border:none;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-d));color:var(--accent-ink);box-shadow:0 6px 18px rgba(124,240,168,.25);}
+  .btn.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line2);}
+  .btn.line{background:transparent;color:var(--txt);border:1px solid var(--line2);}
+  .btn.done{background:transparent;color:var(--accent);border:1px solid rgba(124,240,168,.4);}
+  .btn:active{transform:scale(.98);}
+  .btn.sm{padding:12px;font-size:14px;border-radius:12px;}
+  .btn svg{width:19px;height:19px;}
+
+  .veri{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--accent-ink);}
+  .veri svg{width:11px;height:11px;stroke-width:3.2;}
+  .tag{display:inline-block;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:800;letter-spacing:.4px;}
+  .tag.title{background:rgba(243,201,105,.16);color:var(--gold);}
+
+  /* ---- tournaments ---- */
+  .tcard{display:flex;gap:13px;align-items:center;cursor:pointer;}
+  .tdate{flex:0 0 auto;width:52px;text-align:center;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 4px;}
+  .tdate .m{font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;}
+  .tdate .d{font-size:21px;font-weight:800;line-height:1;margin-top:2px;}
+  .tinfo .tn{font-weight:700;font-size:15px;}
+  .tinfo .tm{color:var(--mut);font-size:12.5px;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;}
+  .tm .mi{display:inline-flex;align-items:center;gap:4px;}
+  .tm .mi svg{width:13px;height:13px;stroke-width:2;color:var(--dim);}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--card2);border:1px solid var(--line2);color:var(--mut);display:inline-flex;align-items:center;gap:4px;}
+  .pill svg{width:12px;height:12px;stroke-width:2.2;}
+  .pill.live{color:var(--danger);border-color:rgba(255,107,107,.4);}
+  .pill.acc{color:var(--accent);border-color:rgba(124,240,168,.35);}
+  .pill.reg{color:var(--accent-ink);background:var(--accent);border-color:var(--accent);}
+  .pill.paid{color:var(--gold);border-color:rgba(243,201,105,.4);}
+  .chev{color:var(--dim);margin-left:auto;display:flex;}
+  .chev svg{width:20px;height:20px;}
+
+  /* ---- bottom nav ---- */
+  nav.tabbar{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:440px;height:calc(var(--nav-h) + var(--safe-b));padding-bottom:var(--safe-b);background:rgba(14,16,22,.86);backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;z-index:40;}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--dim);font-size:10.5px;font-weight:600;cursor:pointer;background:none;border:none;font-family:inherit;}
+  .tab svg{width:23px;height:23px;stroke-width:2;}
+  .tab.on{color:var(--accent);}
+  body.on-clock nav.tabbar{display:none;}
+
+  /* ---- forms ---- */
+  label.fl{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:16px 2px 8px;}
+  input.fi{width:100%;background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:14px;color:var(--txt);font-size:16px;font-family:inherit;outline:none;}
+  input.fi:focus{border-color:var(--accent-d);}
+  .seg{display:flex;background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:4px;gap:4px;}
+  .seg button{flex:1;padding:12px;border:none;background:none;color:var(--mut);font-weight:700;font-size:14px;border-radius:9px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .seg button svg{width:16px;height:16px;}
+  .seg button.on{background:var(--accent);color:var(--accent-ink);}
+  .seg button.on.wsel{background:#f2f4f8;color:#111;}
+  .seg button.on.bsel{background:#2a2f3d;color:#fff;}
+
+  /* ---- time-control selector row ---- */
+  .tc-row{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:14px;cursor:pointer;}
+  .tc-row .ico{width:38px;height:38px;border-radius:10px;background:rgba(124,240,168,.12);display:grid;place-items:center;color:var(--accent);flex:0 0 auto;}
+  .tc-row .ico svg{width:20px;height:20px;}
+  .tc-row .val{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;}
+  .tc-row .cat{color:var(--mut);font-size:12.5px;margin-top:2px;}
+
+  .phead{display:flex;align-items:center;gap:12px;margin:2px 0 18px;}
+  .back{width:38px;height:38px;border-radius:11px;background:var(--card);border:1px solid var(--line2);display:grid;place-items:center;cursor:pointer;flex:0 0 auto;color:var(--txt);}
+  .back svg{width:20px;height:20px;}
+  .phead h2{font-size:20px;font-weight:800;margin:0;}
+
+  /* ---- CLOCK view (own theme) ---- */
+  #v-clock{padding:0;height:100dvh;flex-direction:column;background:var(--clk-bg);}
+  #v-clock.active{display:flex;}
+  .clockface{flex:1;display:flex;flex-direction:column;gap:0;}
+  .cside{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;background:var(--clk-idle);transition:background .18s,opacity .18s;cursor:pointer;margin:6px;border-radius:22px;}
+  .cside.top{transform:rotate(180deg);}
+  .cside .who{position:absolute;top:26px;font-size:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--clk-idle-tx);display:flex;align-items:center;gap:8px;}
+  .whotc{font-size:11px;font-weight:800;letter-spacing:.5px;padding:2px 8px;border-radius:20px;border:1px solid currentColor;opacity:.75;font-variant-numeric:tabular-nums;}
+  .cside .tt{font-variant-numeric:tabular-nums;font-size:84px;font-weight:800;letter-spacing:-3px;color:#5c6478;line-height:1;}
+  .cside .turn{position:absolute;bottom:52px;font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;opacity:0;}
+  .cside .moves{position:absolute;bottom:26px;font-size:12px;color:var(--clk-idle-tx);font-weight:600;}
+  .cside.run{background:linear-gradient(180deg,var(--clk-run-a),var(--clk-run-b));box-shadow:0 0 0 2px rgba(255,210,63,.25),0 10px 40px rgba(245,179,1,.25);}
+  .cside.run .tt{color:var(--clk-run-tx);}
+  .cside.run .who{color:rgba(22,18,0,.7);}
+  .cside.run .moves{color:rgba(22,18,0,.55);}
+  .cside.run .turn{opacity:1;color:var(--clk-run-tx);}
+  .cside.idle{opacity:.9;}
+  .cside.dim{opacity:.42;}
+  .cside.flag{background:#25090b;}
+  .cside.flag .tt{color:#ff5757;}
+  .cside.flag .who{color:#7a2a2c;}
+  .mid{align-self:center;display:flex;flex-direction:column;align-items:center;gap:12px;flex:0 0 auto;z-index:8;}
+  .result-pill{display:none;align-items:center;gap:8px;padding:12px 22px;border-radius:999px;background:linear-gradient(135deg,var(--accent),var(--accent-d));color:var(--accent-ink);font-weight:800;font-size:15px;border:none;cursor:pointer;font-family:inherit;box-shadow:0 8px 24px rgba(124,240,168,.3);}
+  .result-pill.show{display:inline-flex;}
+  .result-pill:active{transform:scale(.96);}
+  .result-pill svg{width:18px;height:18px;}
+  .res-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px;}
+  .res{padding:20px 0;border-radius:16px;border:1px solid var(--line2);background:var(--card2);color:var(--txt);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .res b{font-size:26px;font-weight:800;line-height:1;}
+  .res span{font-size:12px;color:var(--mut);font-weight:600;}
+  .res.win{border-color:rgba(124,240,168,.4);} .res.win b{color:var(--accent);}
+  .res.draw b{color:var(--blue);}
+  .res.lose{border-color:rgba(255,107,107,.35);} .res.lose b{color:var(--danger);}
+  .res:active{transform:scale(.95);}
+  .cbar{align-self:center;display:flex;align-items:center;gap:7px;padding:7px;background:rgba(16,18,26,.92);border:1px solid var(--line2);border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.55);flex:0 0 auto;}
+  .ctl.muted-btn{color:var(--dim);}
+  .ctl{width:46px;height:46px;padding:0;border-radius:50%;background:var(--card);border:1px solid var(--line2);color:var(--txt);cursor:pointer;font-family:inherit;display:grid;place-items:center;}
+  .ctl:active{transform:scale(.94);}
+  .ctl svg{width:20px;height:20px;}
+  .ctl.tcbtn{width:auto;border-radius:23px;padding:0 15px;height:46px;display:flex;align-items:center;gap:7px;font-variant-numeric:tabular-nums;color:var(--accent);border-color:rgba(124,240,168,.35);}
+  .ctl.tcbtn b{font-size:15px;font-weight:800;}
+
+  /* ---- QR ---- */
+  .qrwrap{background:#fff;border-radius:16px;padding:16px;width:216px;margin:4px auto 0;}
+  .qr{display:grid;width:184px;height:184px;}
+  .qr i{width:100%;height:100%;}
+  .qr i.on{background:#0c0e14;}
+  .kv{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line);font-size:14px;gap:14px;}
+  .kv:last-child{border-bottom:none;}
+  .kv .k{color:var(--mut);}
+  .kv .v{font-weight:700;text-align:right;}
+  .kv.sens{cursor:pointer;}
+  .kv.sens .v{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end;}
+  .blurv{transition:filter .18s;}
+  .blurv.blurred{filter:blur(6px);user-select:none;}
+  .eyeb{display:inline-flex;color:var(--dim);flex:0 0 auto;}
+  .eyeb svg{width:16px;height:16px;stroke-width:2;}
+
+  /* ---- ID full ---- */
+  .idhero{text-align:center;padding:8px 0 4px;}
+  .idhero .bigava{width:132px;height:132px;border-radius:28px;overflow:hidden;margin:0 auto;border:1px solid var(--line2);box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .idhero .bigava img{width:100%;height:100%;object-fit:cover;}
+  .idhero .nm{font-size:24px;font-weight:800;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .idhero .nm .veri{width:23px;height:23px;}
+  .idhero .nm .veri svg{width:14px;height:14px;}
+  .idhero .verified{display:inline-flex;align-items:center;gap:7px;margin-top:10px;padding:6px 13px;border-radius:20px;background:rgba(124,240,168,.12);border:1px solid rgba(124,240,168,.3);color:var(--accent);font-size:12.5px;font-weight:700;}
+  .idhero .verified svg{width:14px;height:14px;stroke-width:2.4;}
+  .ratings{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .rc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;}
+  .rc .src{font-size:12px;color:var(--mut);font-weight:600;display:flex;align-items:center;gap:6px;}
+  .rc .val{font-size:26px;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums;}
+  .rc .pk{font-size:11px;color:var(--dim);margin-top:2px;}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+  .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + var(--safe-b) + 18px);transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--line2);color:var(--txt);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:.3s;z-index:120;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:88%;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .muted{color:var(--mut);font-size:13.5px;line-height:1.5;}
+  .row{display:flex;gap:10px;}
+  .row>*{flex:1;}
+
+  /* ---- bottom sheet ---- */
+  .scrim{position:fixed;inset:0;background:rgba(4,6,10,.6);opacity:0;pointer-events:none;transition:.25s;z-index:100;}
+  .scrim.open{opacity:1;pointer-events:auto;}
+  .sheet{position:fixed;left:50%;bottom:0;transform:translateX(-50%) translateY(100%);width:100%;max-width:440px;background:var(--bg2);border-top:1px solid var(--line2);border-radius:22px 22px 0 0;padding:10px 18px calc(20px + var(--safe-b));z-index:101;transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:88dvh;overflow-y:auto;}
+  .sheet.open{transform:translateX(-50%) translateY(0);}
+  .grab{width:38px;height:4px;border-radius:3px;background:var(--line2);margin:2px auto 14px;}
+  .sheet h3{margin:0 0 4px;font-size:19px;font-weight:800;}
+  .subh{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:18px 2px 9px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{padding:11px 15px;border-radius:11px;background:var(--card2);border:1px solid var(--line2);font-size:14px;font-weight:700;cursor:pointer;color:var(--txt);text-align:center;}
+  .chip .s{display:block;font-size:10px;font-weight:600;opacity:.7;margin-top:2px;}
+  .chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
+  .gchip{min-width:46px;}
+  .tcprev{text-align:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:8px;}
+  .tcprev .p{font-size:38px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-1px;}
+  .tcprev .c{color:var(--accent);font-size:13px;font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.5px;}
+  /* pay sheet */
+  .paysum{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:6px 0;}
+  .paysum .amt{font-size:30px;font-weight:800;}
+  .cardrow{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:14px;margin-bottom:6px;}
+  .cardrow .cbrand{width:40px;height:26px;border-radius:6px;background:linear-gradient(135deg,#3a4a6b,#1d2536);display:grid;place-items:center;font-size:10px;font-weight:800;color:#cdd6ea;letter-spacing:.5px;}
+  .demo-note{font-size:11.5px;color:var(--dim);text-align:center;margin-top:12px;}
+  .paydone{text-align:center;padding:14px 0;}
+  .paydone .ok{width:66px;height:66px;border-radius:50%;background:rgba(124,240,168,.14);display:grid;place-items:center;margin:0 auto 12px;color:var(--accent);}
+  .paydone .ok svg{width:34px;height:34px;stroke-width:3;}
+  .spin{width:22px;height:22px;border:3px solid rgba(6,32,18,.35);border-top-color:var(--accent-ink);border-radius:50%;animation:sp .7s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= HOME ================= -->
+  <section id="v-home" class="view active">
+    <header class="hbar">
+      <div class="brand">
+        <div class="logo" style="font-size:16px;letter-spacing:-.5px">64</div>
+        <div class="bt">Clash 64<small>Play chess IRL</small></div>
+      </div>
+      <div class="me" onclick="go('chessid')">
+        <div class="me-tx"><b>Mike Day</b><small>FM &middot; 2145</small></div>
+        <div class="avatar-sm" id="homeAva"></div>
+      </div>
+    </header>
+
+    <div class="hero-clock" onclick="go('clock')">
+      <div class="glow"></div>
+      <div class="lbl" id="heroLbl"></div>
+      <div class="big" id="homeClockTime">05:00</div>
+      <div class="hint">Tap to open the chess clock</div>
+      <div class="mini-pieces">&#9812;&#9819;</div>
+    </div>
+
+    <button class="btn primary" style="margin-top:2px" onclick="startCreate()" id="createBtn"></button>
+
+    <div class="sec-title">Upcoming tournaments</div>
+    <div id="homeTournaments"></div>
+    <button class="btn line sm" onclick="go('events')" style="margin-top:2px">See all events</button>
+  </section>
+
+  <!-- ================= CLOCK ================= -->
+  <section id="v-clock" class="view">
+    <div class="clockface">
+      <div class="cside top" id="cs-top" onclick="tapSide('top')">
+        <div class="who">Black <span class="whotc" id="whotc-top">5+0</span></div>
+        <div class="tt" id="tt-top">05:00</div>
+        <div class="turn">Your move</div>
+        <div class="moves" id="mv-top">0 moves</div>
+      </div>
+      <div class="mid">
+        <button class="result-pill" id="resultBtn" onclick="openResult()"></button>
+        <div class="cbar">
+          <button class="ctl" onclick="clockAction('reset',event)"></button>
+          <button class="ctl" id="btnPause" onclick="clockAction('pause',event)"></button>
+          <button class="ctl" onclick="clockAction('time',event)"></button>
+          <button class="ctl" id="btnSound" onclick="toggleSound()"></button>
+          <button class="ctl" onclick="clockAction('exit',event)"></button>
+        </div>
+      </div>
+      <div class="cside" id="cs-bot" onclick="tapSide('bot')">
+        <div class="who">White <span class="whotc" id="whotc-bot">5+0</span></div>
+        <div class="tt" id="tt-bot">05:00</div>
+        <div class="turn">Your move</div>
+        <div class="moves" id="mv-bot">0 moves</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CREATE GAME ================= -->
+  <section id="v-create" class="view">
+    <div class="phead"><div class="back" onclick="go('home')"></div><h2>New game</h2></div>
+
+    <label class="fl">Opponent</label>
+    <input class="fi" id="f-opp" placeholder="@username or full name" />
+
+    <label class="fl">Date &amp; time</label>
+    <input class="fi" id="f-when" type="datetime-local" />
+
+    <label class="fl">Location</label>
+    <input class="fi" id="f-place" placeholder="Cafe, club, address..." />
+
+    <label class="fl">Time control</label>
+    <div class="tc-row" onclick="openTC('create')">
+      <div class="ico" id="tcRowIco"></div>
+      <div><div class="val" id="tcRowVal">10 + 0</div><div class="cat" id="tcRowCat">Rapid</div></div>
+      <div class="chev" id="tcRowChev"></div>
+    </div>
+
+    <label class="fl">Your color</label>
+    <div class="seg" id="colorSeg">
+      <button data-c="white" onclick="pickColor('white',event)">&#9812; White</button>
+      <button data-c="black" onclick="pickColor('black',event)">&#9818; Black</button>
+      <button data-c="random" class="on" onclick="pickColor('random',event)"><span id="randIco"></span>Random</button>
+    </div>
+
+    <button class="btn primary" style="margin-top:26px" onclick="createInvite()">Create invite</button>
+    <p class="muted" style="text-align:center;margin-top:12px">Both players confirm the result to make it rated.</p>
+  </section>
+
+  <!-- ================= INVITE / QR ================= -->
+  <section id="v-invite" class="view">
+    <div class="phead"><div class="back" onclick="go('create')"></div><h2>Invite ready</h2></div>
+    <div class="card" style="text-align:center;padding:20px 16px">
+      <div class="qrwrap"><div class="qr" id="qr"></div></div>
+      <p class="muted" style="margin:14px 4px 0">Have your opponent scan this to join &amp; start the game.</p>
+    </div>
+    <div class="card">
+      <div class="kv"><span class="k">Opponent</span><span class="v" id="iv-opp">&mdash;</span></div>
+      <div class="kv"><span class="k">When</span><span class="v" id="iv-when">&mdash;</span></div>
+      <div class="kv"><span class="k">Where</span><span class="v" id="iv-place">&mdash;</span></div>
+      <div class="kv"><span class="k">Time control</span><span class="v" id="iv-tc">&mdash;</span></div>
+      <div class="kv"><span class="k">You play</span><span class="v" id="iv-color">&mdash;</span></div>
+    </div>
+    <div class="row">
+      <button class="btn ghost sm" onclick="shareInvite()" id="shareBtn"></button>
+      <button class="btn primary sm" onclick="confirmStart()">Confirm &amp; start</button>
+    </div>
+  </section>
+
+  <!-- ================= CHESS ID ================= -->
+  <section id="v-chessid" class="view">
+    <div class="phead"><div class="back" onclick="go('home')"></div><h2>Chess ID</h2></div>
+    <div class="idhero">
+      <div class="bigava" id="idBigAva"></div>
+      <div class="nm">Mike Day <span class="veri"></span></div>
+      <div style="margin-top:8px"><span class="tag title" style="font-size:12px;padding:4px 10px">FM &middot; FIDE Master</span></div>
+      <div class="verified" id="veriBadge">Verified identity &mdash; Didit KYC</div>
+    </div>
+    <div class="sec-title">Ratings</div>
+    <div class="ratings">
+      <div class="rc"><div class="src"><span class="dot" style="background:var(--gold)"></span>FIDE</div><div class="val">2145</div><div class="pk">Standard &middot; peak 2201</div></div>
+      <div class="rc"><div class="src"><span class="dot" style="background:#6ea84f"></span>Chess.com</div><div class="val">2260</div><div class="pk">Rapid &middot; peak 2314</div></div>
+      <div class="rc"><div class="src"><span class="dot" style="background:#c9c9c9"></span>Lichess</div><div class="val">2310</div><div class="pk">Blitz &middot; peak 2388</div></div>
+      <div class="rc"><div class="src"><span class="dot" style="background:var(--blue)"></span>Club</div><div class="val">1890</div><div class="pk">Tel-Aviv CC</div></div>
+    </div>
+    <div class="sec-title">Identity</div>
+    <div class="card">
+      <div class="kv"><span class="k">Full name</span><span class="v">Mike Day</span></div>
+      <div class="kv sens" id="dobRow" onclick="toggleDob()">
+        <span class="k">Date of birth</span>
+        <span class="v"><span class="blurv blurred" id="dobVal">14 March 1990</span><span class="eyeb" id="dobEye"></span></span>
+      </div>
+      <div class="kv"><span class="k">FIDE ID</span><span class="v">2801337</span></div>
+      <div class="kv"><span class="k">Title</span><span class="v">FIDE Master (FM)</span></div>
+      <div class="kv"><span class="k">Federation</span><span class="v">ISR</span></div>
+      <div class="kv"><span class="k">Member since</span><span class="v">2023</span></div>
+    </div>
+    <div class="card" style="text-align:center;padding:18px">
+      <div class="qrwrap" style="width:180px"><div class="qr" id="qrId" style="width:148px;height:148px"></div></div>
+      <p class="muted" style="margin-top:12px">Share your Chess ID at the board</p>
+    </div>
+  </section>
+
+  <!-- ================= EVENTS ================= -->
+  <section id="v-events" class="view">
+    <div class="top"><div><h1>Events</h1><div class="sub">Tournaments near you</div></div></div>
+    <div id="allTournaments"></div>
+  </section>
+
+  <!-- ================= EVENT DETAIL ================= -->
+  <section id="v-event" class="view">
+    <div class="phead"><div class="back" onclick="go('events')"></div><h2>Tournament</h2></div>
+    <div id="eventDetail"></div>
+  </section>
+
+</div>
+
+<!-- ================= TAB BAR ================= -->
+<nav class="tabbar">
+  <button class="tab on" data-tab="home" onclick="go('home')"><span data-ic="home"></span>Home</button>
+  <button class="tab" data-tab="create" onclick="startCreate()"><span data-ic="plus"></span>Play</button>
+  <button class="tab" data-tab="chessid" onclick="go('chessid')"><span data-ic="badge"></span>ID</button>
+  <button class="tab" data-tab="events" onclick="go('events')"><span data-ic="trophy"></span>Events</button>
+</nav>
+
+<div class="scrim" id="scrim" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ ICON PACK (lucide-style, inline SVG) ============ */
+const ICONS={
+  home:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  badge:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="M13 9h4M13 13h4M6.5 15.5a2.6 2.6 0 0 1 5 0"/>',
+  trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.6V17c0 .5-.4 1-1 1.2C7.9 18.7 7 20.2 7 22"/><path d="M14 14.6V17c0 .5.4 1 1 1.2 1.1.5 2 2 2 3.8"/><path d="M18 2H6v7a6 6 0 0 0 12 0Z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.7"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  timer:'<path d="M9 2h6"/><path d="M12 14 15 11"/><circle cx="12" cy="14" r="8"/>',
+  pause:'<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  play:'<path d="M7 4.5v15a1 1 0 0 0 1.5.87l12-7.5a1 1 0 0 0 0-1.74l-12-7.5A1 1 0 0 0 7 4.5Z" fill="currentColor" stroke="none"/>',
+  reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  share:'<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/>',
+  right:'<path d="m9 18 6-6-6-6"/>',
+  left:'<path d="m15 18-6-6 6-6"/>',
+  shuffle:'<path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/>',
+  card:'<rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/>',
+  ticket:'<path d="M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v14"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M10.7 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a13 13 0 0 1-2.2 2.9M6.6 6.6A13 13 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 3.4-.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m2 2 20 20"/>',
+  volume:'<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/>',
+  mute:'<path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/>',
+  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V4"/>',
+  bolt:'<path d="M13 2 4 14h6l-1 8 9-12h-6Z"/>',
+};
+function icon(name,size,extra){return `<svg viewBox="0 0 24 24" width="${size||22}" height="${size||22}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra||''}>${ICONS[name]||''}</svg>`;}
+function mountIcons(){
+  document.querySelectorAll('[data-ic]').forEach(el=>el.innerHTML=icon(el.dataset.ic,23));
+  document.querySelectorAll('.back').forEach(el=>el.innerHTML=icon('left',20));
+  document.querySelectorAll('.chev').forEach(el=>{if(!el.dataset.done){el.innerHTML=icon('right',20);el.dataset.done=1;}});
+  document.getElementById('createBtn').innerHTML=icon('plus',19)+' Create a game';
+  document.getElementById('heroLbl').innerHTML=icon('clock',14)+' Chess clock';
+  document.getElementById('shareBtn').innerHTML=icon('share',18)+' Share link';
+  document.getElementById('randIco').innerHTML=icon('shuffle',15,'style="margin-right:6px"');
+  document.getElementById('tcRowIco').innerHTML=icon('timer',20);
+  document.querySelector('#veriBadge').innerHTML=icon('shield',14)+' Verified identity &mdash; Didit KYC';
+  document.querySelectorAll('.veri').forEach(v=>v.innerHTML=icon('check',12));
+  document.getElementById('dobEye').innerHTML=icon('eye',16);
+  // clock control buttons (icon-only)
+  const cb=document.querySelectorAll('#v-clock .cbar .ctl');
+  cb[0].innerHTML=icon('reset',20);
+  document.getElementById('btnPause').innerHTML=icon('pause',20);
+  cb[2].innerHTML=icon('timer',20);
+  document.getElementById('btnSound').innerHTML=icon('volume',20);
+  cb[4].innerHTML=icon('x',20);
+  document.getElementById('resultBtn').innerHTML=icon('flag',18)+' Report result';
+}
+
+/* ============ AVATAR (inline SVG monogram) ============ */
+function avatar(size){
+  return `data:image/svg+xml;utf8,`+encodeURIComponent(
+   `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}'>
+      <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='#7cf0a8'/><stop offset='1' stop-color='#3aa6ff'/></linearGradient></defs>
+      <rect width='100%' height='100%' fill='url(#g)'/>
+      <text x='50%' y='54%' font-family='-apple-system,Arial' font-size='${size*0.42}' font-weight='800'
+        fill='#08160e' text-anchor='middle' dominant-baseline='middle'>MD</text>
+    </svg>`);
+}
+function setAva(){
+  document.getElementById('homeAva').innerHTML=`<img src="${avatar(96)}">`;
+  document.getElementById('idBigAva').innerHTML=`<img src="${avatar(280)}">`;
+}
+
+/* ============ TOURNAMENTS ============ */
+const TOURNAMENTS=[
+  {id:1,m:'JUL',d:'19',name:'Tel-Aviv Rapid Open',place:'Tel-Aviv Chess Club',fmt:'Rapid 15+10',entrants:64,prize:'8,000',fee:0,live:false,days:'Sat &middot; 10:00',registered:true},
+  {id:2,m:'JUL',d:'26',name:'Jaffa Blitz Arena',place:'Cafe Puaa, Jaffa',fmt:'Blitz 3+2',entrants:32,prize:'2,500',fee:40,live:false,days:'Sat &middot; 19:00',registered:false},
+  {id:3,m:'AUG',d:'02',name:'Mediterranean Classic',place:'Herzliya Marina',fmt:'Classical 90+30',entrants:120,prize:'5,000',fee:0,live:false,days:'Fri&ndash;Sun',registered:false},
+  {id:4,m:'AUG',d:'09',name:'Night Bullet Championship',place:'The Board Room, TLV',fmt:'Bullet 1+0',entrants:48,prize:'1,500',fee:0,live:true,days:'Sat &middot; 21:00',registered:false},
+];
+function statusPill(t){
+  if(t.registered) return `<span class="pill reg">${icon('check',12)} Registered</span>`;
+  if(t.live) return `<span class="pill live">&#9679; LIVE</span>`;
+  if(t.fee) return `<span class="pill paid">${icon('ticket',12)} &#8362;${t.fee}</span>`;
+  return `<span class="pill">${t.days}</span>`;
+}
+function tCard(t,mini){
+  return `<div class="card tcard" onclick="openEvent(${t.id})" ${mini?'style="padding:13px"':''}>
+    <div class="tdate"><div class="m">${t.m}</div><div class="d">${t.d}</div></div>
+    <div class="tinfo" style="flex:1">
+      <div class="tn">${t.name}</div>
+      <div class="tm"><span class="mi">${icon('pin',13)} ${t.place}</span></div>
+      <div class="tm" style="margin-top:6px">
+        <span class="pill acc">${t.fmt}</span>
+        <span class="pill">${icon('users',12)} ${t.entrants}</span>
+        ${statusPill(t)}
+      </div>
+    </div>
+    <div class="chev" data-done="1">${icon('right',20)}</div>
+  </div>`;
+}
+function renderTournaments(){
+  document.getElementById('homeTournaments').innerHTML=TOURNAMENTS.slice(0,2).map(t=>tCard(t,true)).join('');
+  document.getElementById('allTournaments').innerHTML=TOURNAMENTS.map(t=>tCard(t)).join('');
+}
+function openEvent(id){
+  const t=TOURNAMENTS.find(x=>x.id===id);
+  const btn = t.registered
+    ? `<button class="btn done">${icon('check',18)} You're registered</button>`
+    : t.fee
+      ? `<button class="btn primary" onclick="register(${t.id})">${icon('ticket',18)} Register &mdash; &#8362;${t.fee}</button>`
+      : `<button class="btn primary" onclick="register(${t.id})">Register &mdash; free</button>`;
+  document.getElementById('eventDetail').innerHTML=`
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="height:120px;background:linear-gradient(135deg,#1b2740,#0f1420);display:flex;align-items:flex-end;padding:16px;position:relative">
+        <div style="position:absolute;right:14px;top:14px">${t.registered?`<span class="pill reg">${icon('check',12)} Registered</span>`:(t.live?'<span class="pill live">&#9679; LIVE</span>':'<span class="pill acc">Registering</span>')}</div>
+        <div style="position:absolute;right:16px;bottom:8px;opacity:.3;font-size:44px;color:#cdd5e6">&#9823;&#9822;&#9821;</div>
+        <div class="tdate" style="display:inline-block"><div class="m">${t.m}</div><div class="d">${t.d}</div></div>
+      </div>
+      <div style="padding:16px">
+        <div style="font-size:20px;font-weight:800">${t.name}</div>
+        <div class="tm muted" style="margin-top:6px;display:flex;gap:6px;align-items:center">${icon('pin',14)} ${t.place} &middot; ${t.days}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="kv"><span class="k">Format</span><span class="v">${t.fmt}</span></div>
+      <div class="kv"><span class="k">Entrants</span><span class="v">${t.entrants} players</span></div>
+      <div class="kv"><span class="k">Entry fee</span><span class="v">${t.fee?('&#8362;'+t.fee):'Free'}</span></div>
+      <div class="kv"><span class="k">Prize fund</span><span class="v">&#8362;${t.prize}</span></div>
+      <div class="kv"><span class="k">Rating</span><span class="v">FIDE-rated</span></div>
+    </div>
+    ${btn}`;
+  go('event');
+}
+function register(id){
+  const t=TOURNAMENTS.find(x=>x.id===id);
+  if(t.registered){toast('Already registered');return;}
+  if(t.fee){ openPay(t); }
+  else { t.registered=true; renderTournaments(); openEvent(id); toast('Registered — see you at the board'); }
+}
+
+/* ============ PAYMENT (imitation) ============ */
+function openPay(t){
+  openSheet(`
+    <div class="grab"></div>
+    <h3>Entry fee</h3>
+    <p class="muted" style="margin:2px 0 0">${t.name}</p>
+    <div class="paysum"><div><div class="muted" style="font-size:12px">Total</div><div class="amt">&#8362;${t.fee}.00</div></div>${icon('ticket',30,'style="color:var(--gold)"')}</div>
+    <div class="subh">Pay with</div>
+    <div class="cardrow"><div class="cbrand">VISA</div><div style="flex:1"><b>&bull;&bull;&bull;&bull; 4242</b><div class="muted" style="font-size:12px">Expires 08/29</div></div>${icon('check',18,'style="color:var(--accent)"')}</div>
+    <button class="btn primary" id="payBtn" style="margin-top:14px" onclick="doPay(${t.id})">Pay &#8362;${t.fee} &amp; register</button>
+    <div class="demo-note">Demo — no real charge is made</div>
+  `);
+}
+function doPay(id){
+  const b=document.getElementById('payBtn');
+  b.innerHTML='<span class="spin"></span>'; b.style.pointerEvents='none';
+  setTimeout(()=>{
+    const t=TOURNAMENTS.find(x=>x.id===id); t.registered=true; renderTournaments();
+    document.getElementById('sheet').innerHTML=`
+      <div class="grab"></div>
+      <div class="paydone">
+        <div class="ok">${icon('check',34)}</div>
+        <h3 style="text-align:center">Payment successful</h3>
+        <p class="muted" style="margin-top:6px">&#8362;${t.fee} paid &middot; you're registered for<br><b style="color:var(--txt)">${t.name}</b></p>
+      </div>
+      <button class="btn primary" onclick="closeSheet();openEvent(${id});">Done</button>`;
+    navigator.vibrate&&navigator.vibrate(30);
+  },1100);
+}
+
+/* ============ ROUTER ============ */
+let cur='home';
+function go(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+  document.getElementById('v-'+v).classList.add('active');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===v));
+  document.body.classList.toggle('on-clock',v==='clock');
+  window.scrollTo(0,0); cur=v;
+  if(v==='clock') mountClock();
+}
+
+/* ============ TIME CONTROL ============ */
+const PRESETS=[{min:1,inc:0},{min:3,inc:2},{min:5,inc:0},{min:10,inc:0},{min:15,inc:10},{min:30,inc:0}];
+const BASE=[1,2,3,5,10,15,20,25,30,45,60,90];
+const INC=[0,1,2,3,5,10,15,30];
+function cat(min){return min<3?'Bullet':min<10?'Blitz':min<30?'Rapid':'Classic';}
+let sel={min:10,inc:0};                 // create-screen selection
+let tcDraft={min:10,inc:0}, tcCtx='create';
+function updateTCRow(){
+  document.getElementById('tcRowVal').textContent=`${sel.min} + ${sel.inc}`;
+  document.getElementById('tcRowCat').textContent=cat(sel.min)+' &middot; '.replace('&middot;','·');
+  document.getElementById('tcRowCat').textContent=cat(sel.min);
+}
+function openTC(ctx){
+  tcCtx=ctx;
+  tcDraft = ctx==='create' ? {...sel} : {min:Math.round(clock.baseSec/60),inc:clock.inc};
+  renderTCSheet();
+}
+function renderTCSheet(){
+  const isP=(p)=>p.min===tcDraft.min&&p.inc===tcDraft.inc;
+  openSheet(`
+    <div class="grab"></div>
+    <h3>Time control</h3>
+    <div class="tcprev"><div class="p">${tcDraft.min} + ${tcDraft.inc}</div><div class="c">${cat(tcDraft.min)}</div></div>
+    <div class="subh">Presets</div>
+    <div class="chips">${PRESETS.map(p=>`<div class="chip ${isP(p)?'on':''}" onclick="setPreset(${p.min},${p.inc})">${p.min}+${p.inc}<span class="s">${cat(p.min)}</span></div>`).join('')}</div>
+    <div class="subh">Base minutes</div>
+    <div class="chips">${BASE.map(m=>`<div class="chip gchip ${m===tcDraft.min?'on':''}" onclick="setBase(${m})">${m}</div>`).join('')}</div>
+    <div class="subh">Increment (sec / move)</div>
+    <div class="chips">${INC.map(i=>`<div class="chip gchip ${i===tcDraft.inc?'on':''}" onclick="setInc(${i})">+${i}</div>`).join('')}</div>
+    <button class="btn primary" style="margin-top:22px" onclick="applyTC()">${tcCtx==='clock'?'Start clock':'Set time control'}</button>
+  `);
+}
+function setPreset(m,i){tcDraft={min:m,inc:i};renderTCSheet();}
+function setBase(m){tcDraft.min=m;renderTCSheet();}
+function setInc(i){tcDraft.inc=i;renderTCSheet();}
+function applyTC(){
+  if(tcCtx==='create'){
+    sel={...tcDraft}; updateTCRow(); closeSheet();
+  }else{
+    activeGame={sec:tcDraft.min*60,inc:tcDraft.inc,label:`${tcDraft.min}+${tcDraft.inc}`};
+    setClock(activeGame.sec,activeGame.inc,activeGame.label);
+    closeSheet(); toast('Time control set to '+activeGame.label);
+  }
+}
+
+/* ============ CREATE FLOW ============ */
+function pickColor(c,e){
+  sel.color=c;
+  document.querySelectorAll('#colorSeg button').forEach(b=>{
+    const on=b.dataset.c===c;
+    b.classList.toggle('on',on);
+    b.classList.toggle('wsel',on&&c==='white');
+    b.classList.toggle('bsel',on&&c==='black');
+  });
+}
+function startCreate(){
+  updateTCRow();
+  if(!document.getElementById('f-when').value){
+    const d=new Date(Date.now()+3600e3); d.setMinutes(0);
+    document.getElementById('f-when').value=d.toISOString().slice(0,16);
+  }
+  go('create');
+}
+function fmtWhen(v){
+  if(!v) return 'Not set';
+  const d=new Date(v);
+  return d.toLocaleDateString([], {weekday:'short',month:'short',day:'numeric'})+' &middot; '.replace('&middot;','·')+
+         d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+let lastLink='';
+function createInvite(){
+  const opp=document.getElementById('f-opp').value.trim()||'Open invite';
+  const when=document.getElementById('f-when').value;
+  const place=document.getElementById('f-place').value.trim()||'TBD';
+  const colorTxt = sel.color==='white'?'♔ White':sel.color==='black'?'♚ Black':'Random';
+  document.getElementById('iv-opp').textContent=opp;
+  document.getElementById('iv-when').textContent=fmtWhen(when);
+  document.getElementById('iv-place').textContent=place;
+  document.getElementById('iv-tc').textContent=`${sel.min}+${sel.inc} · ${cat(sel.min)}`;
+  document.getElementById('iv-color').textContent=colorTxt;
+  activeGame={sec:sel.min*60,inc:sel.inc,label:`${sel.min}+${sel.inc}`,opp:opp};
+  lastLink='https://gambit.chess/g/'+Math.random().toString(36).slice(2,9);
+  drawQR('qr',lastLink,29);
+  go('invite');
+}
+function shareInvite(){
+  const txt='Join my rated chess game on Clash 64: '+lastLink;
+  if(navigator.share){navigator.share({title:'Clash 64 game',text:txt,url:lastLink}).catch(()=>{});}
+  else{navigator.clipboard?.writeText(lastLink); toast('Link copied');}
+}
+function confirmStart(){
+  if(activeGame){ activeGame.confirmed=true; activeGame.result=null; setClock(activeGame.sec,activeGame.inc,activeGame.label); }
+  go('clock');
+}
+
+/* ============ QR (stylized, deterministic) ============ */
+function drawQR(elId,text,n){
+  const el=document.getElementById(elId);
+  let h=2166136261;
+  for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}
+  const rnd=()=>{h^=h<<13;h^=h>>>17;h^=h<<5;return (h>>>0)/4294967296;};
+  el.style.gridTemplateColumns=`repeat(${n},1fr)`;
+  el.style.gridTemplateRows=`repeat(${n},1fr)`;
+  const cells=[], finder=(r,c)=>(r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7);
+  for(let r=0;r<n;r++)for(let c=0;c<n;c++){
+    let on;
+    if(finder(r,c)){
+      const rr=r<7?r:(r>=n-7?r-(n-7):r), cc=c<7?c:(c>=n-7?c-(n-7):c);
+      on=(rr===0||rr===6||cc===0||cc===6||(rr>=2&&rr<=4&&cc>=2&&cc<=4));
+    } else if(r===6||c===6){ on=(r+c)%2===0; }
+    else { on=rnd()>0.52; }
+    cells.push(`<i class="${on?'on':''}"></i>`);
+  }
+  el.innerHTML=cells.join('');
+}
+
+/* ============ CHESS CLOCK ============ */
+let clock={top:300,bot:300,baseSec:300,inc:0,run:null,paused:true,mvTop:0,mvBot:0,label:'5+0',tick:null};
+let activeGame=null;
+function fmt(s){s=Math.max(0,s);const m=Math.floor(s/60),ss=Math.floor(s%60);
+  return (m<10?'0'+m:m)+':'+(ss<10?'0'+ss:ss);}
+function paintClock(){
+  document.getElementById('tt-top').textContent=fmt(clock.top);
+  document.getElementById('tt-bot').textContent=fmt(clock.bot);
+  document.getElementById('mv-top').textContent=clock.mvTop+' moves';
+  document.getElementById('mv-bot').textContent=clock.mvBot+' moves';
+  document.getElementById('whotc-top').textContent=clock.label;
+  document.getElementById('whotc-bot').textContent=clock.label;
+  const T=document.getElementById('cs-top'),B=document.getElementById('cs-bot');
+  const cls=(side,val)=>'cside'+(side==='top'?' top':'')+
+     (clock.run===side?' run':(clock.run?' dim':' idle'))+(val<=0?' flag':'');
+  T.className=cls('top',clock.top); B.className=cls('bot',clock.bot);
+}
+function mountClock(){
+  if(!activeGame) setClock(300,0,'5+0'); else paintClock();
+  document.getElementById('resultBtn').classList.toggle('show', !!(activeGame&&activeGame.confirmed&&!activeGame.result));
+}
+function setClock(sec,inc,label){
+  stopTick();
+  clock={top:sec,bot:sec,baseSec:sec,inc:inc,run:null,paused:true,mvTop:0,mvBot:0,label:label,tick:null};
+  const pb=document.getElementById('btnPause'); if(pb) pb.innerHTML=icon('pause',20);
+  paintClock();
+}
+function stopTick(){ if(clock.tick){clearInterval(clock.tick);clock.tick=null;} }
+function startTick(){
+  stopTick(); clock.paused=false;
+  let last=performance.now();
+  clock.tick=setInterval(()=>{
+    const now=performance.now(),dt=(now-last)/1000;last=now;
+    if(clock.run==='top'){clock.top-=dt; if(clock.top<=0){clock.top=0;flag();}}
+    else if(clock.run==='bot'){clock.bot-=dt; if(clock.bot<=0){clock.bot=0;flag();}}
+    paintClock();
+  },100);
+}
+function flag(){ stopTick(); clock.paused=true; navigator.vibrate&&navigator.vibrate(200);
+  toast((clock.top<=0?'Black':'White')+' flagged'); }
+function tapSide(side){
+  if(clock.top<=0||clock.bot<=0) return;
+  if(clock.run===null){ clock.run = side==='top'?'bot':'top'; startTick(); beep(760,0.10); paintClock(); return; }
+  if(clock.paused){ startTick(); paintClock(); return; }
+  if(clock.run!==side) return;
+  if(side==='top'){ clock.top+=clock.inc; clock.mvTop++; clock.run='bot'; }
+  else            { clock.bot+=clock.inc; clock.mvBot++; clock.run='top'; }
+  beep(880,0.09);
+  navigator.vibrate&&navigator.vibrate(15);
+  paintClock();
+}
+function clockAction(a,e){ e&&e.stopPropagation();
+  if(a==='pause'){
+    if(clock.run===null) return;
+    const pb=document.getElementById('btnPause');
+    if(clock.paused){startTick();pb.innerHTML=icon('pause',20);}
+    else{stopTick();clock.paused=true;pb.innerHTML=icon('play',20);}
+    paintClock();
+  }
+  if(a==='reset'){ setClock(clock.baseSec,clock.inc,clock.label); }
+  if(a==='time'){ openTC('clock'); }
+  if(a==='exit'){ stopTick(); activeGame=null; go('home'); }
+}
+
+/* ============ SENSITIVE FIELD ============ */
+function toggleDob(){
+  const v=document.getElementById('dobVal'), blurred=v.classList.toggle('blurred');
+  document.getElementById('dobEye').innerHTML=icon(blurred?'eye':'eyeoff',16);
+}
+
+/* ============ SOUND ============ */
+let soundOn=true, actx=null;
+function beep(freq,dur){
+  if(!soundOn) return;
+  try{
+    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended') actx.resume();
+    const o=actx.createOscillator(), g=actx.createGain(), t=actx.currentTime;
+    o.type='sine'; o.frequency.value=freq||880;
+    o.connect(g); g.connect(actx.destination);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.28,t+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+(dur||0.11));
+    o.start(t); o.stop(t+(dur||0.11)+0.02);
+  }catch(e){}
+}
+function toggleSound(){
+  soundOn=!soundOn;
+  const b=document.getElementById('btnSound');
+  b.innerHTML=icon(soundOn?'volume':'mute',20);
+  b.classList.toggle('muted-btn',!soundOn);
+  if(soundOn) beep(880,0.09);
+  toast(soundOn?'Sound on':'Sound muted');
+}
+
+/* ============ RESULT (confirmed games) ============ */
+function openResult(){
+  const opp=(activeGame&&activeGame.opp)||'your opponent';
+  openSheet(`
+    <div class="grab"></div>
+    <h3>Report result</h3>
+    <p class="muted" style="margin:2px 0 0">Pick the outcome — ${opp} confirms it in their app to make the game rated.</p>
+    <div class="res-opts">
+      <button class="res win" onclick="sendResult('win')"><b>1</b><span>Win</span></button>
+      <button class="res draw" onclick="sendResult('draw')"><b>&frac12;</b><span>Draw</span></button>
+      <button class="res lose" onclick="sendResult('lose')"><b>0</b><span>Lose</span></button>
+    </div>
+  `);
+}
+function sendResult(r){
+  const opp=(activeGame&&activeGame.opp)||'Opponent';
+  const label={win:'Win',draw:'Draw',lose:'Loss'}[r];
+  stopTick();
+  document.getElementById('sheet').innerHTML=`
+    <div class="grab"></div>
+    <div class="paydone">
+      <div class="ok"><span class="spin"></span></div>
+      <h3 style="text-align:center">Result sent</h3>
+      <p class="muted" style="margin-top:6px">You reported <b style="color:var(--txt)">${label}</b>.<br>Waiting for ${opp} to confirm in their app&hellip;</p>
+    </div>`;
+  setTimeout(()=>{                       // demo: opponent confirms
+    if(activeGame) activeGame.result=r;
+    beep(660,0.12);
+    document.getElementById('sheet').innerHTML=`
+      <div class="grab"></div>
+      <div class="paydone">
+        <div class="ok">${icon('check',34)}</div>
+        <h3 style="text-align:center">Result confirmed</h3>
+        <p class="muted" style="margin-top:6px"><b style="color:var(--txt)">${label}</b> confirmed by ${opp}.<br>Game is now rated.</p>
+      </div>
+      <button class="btn primary" onclick="closeSheet();activeGame=null;go('home');">Done</button>`;
+    navigator.vibrate&&navigator.vibrate([20,40,20]);
+  },1700);
+}
+
+/* ============ SHEET ============ */
+function openSheet(html){
+  document.getElementById('sheet').innerHTML=html;
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('scrim').classList.add('open');
+}
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('scrim').classList.remove('open');
+}
+
+/* ============ MISC ============ */
+let tt;
+function toast(msg){const t=document.getElementById('toast');t.innerHTML=msg;t.classList.add('show');
+  clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ============ INIT ============ */
+mountIcons();
+setAva();
+renderTournaments();
+updateTCRow();
+drawQR('qrId','https://gambit.chess/id/mikeday',25);
+document.getElementById('homeClockTime').textContent='05:00';
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
