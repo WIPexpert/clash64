@@ -1,5 +1,5 @@
 // Gambit PWA service worker — offline-first cache.
-const CACHE = 'clash64-v8';
+const CACHE = 'clash64-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
+  './img/avatar.png',
 ];
 
 self.addEventListener('install', (e) => {
