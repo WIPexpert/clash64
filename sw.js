@@ -1,5 +1,5 @@
 // Gambit PWA service worker — offline-first cache.
-const CACHE = 'gambit-v7';
+const CACHE = 'clash64-v8';
 const ASSETS = [
   './',
   './index.html',
