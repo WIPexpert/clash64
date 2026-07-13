@@ -61,12 +61,13 @@
   .sec-title{font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin:22px 2px 10px;}
 
   /* ---- hero clock card ---- */
-  .hero-clock{position:relative;overflow:hidden;border-radius:var(--r);padding:20px;background:linear-gradient(140deg,#1b2740,#141824 70%);border:1px solid var(--line2);cursor:pointer;}
+  .hero-clock{position:relative;overflow:hidden;border-radius:var(--r);padding:20px;background:linear-gradient(140deg,#1b2740,#141824 70%);border:1px solid var(--line2);cursor:pointer;margin-bottom:16px;}
   .hero-clock .glow{position:absolute;right:-40px;top:-40px;width:170px;height:170px;background:radial-gradient(circle,rgba(124,240,168,.20),transparent 70%);}
   .hero-clock .lbl{display:flex;align-items:center;gap:7px;color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.7px;text-transform:uppercase;}
   .hero-clock .big{font-variant-numeric:tabular-nums;font-size:46px;font-weight:800;letter-spacing:-1px;margin-top:10px;}
   .hero-clock .hint{color:var(--mut);font-size:13px;margin-top:6px;}
-  .mini-pieces{position:absolute;right:18px;bottom:14px;font-size:36px;opacity:.45;letter-spacing:-5px;color:#cdd5e6;}
+  .mini-pieces{position:absolute;right:20px;bottom:16px;opacity:.4;color:var(--accent);}
+  .mini-pieces svg{width:64px;height:64px;stroke-width:1.6;}
 
   .btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:16px;border-radius:14px;border:none;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
   .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent-d));color:var(--accent-ink);box-shadow:0 6px 18px rgba(124,240,168,.25);}
@@ -260,7 +261,7 @@
       <div class="lbl" id="heroLbl"></div>
       <div class="big" id="homeClockTime">05:00</div>
       <div class="hint">Tap to open the chess clock</div>
-      <div class="mini-pieces">&#9812;&#9819;</div>
+      <div class="mini-pieces" id="heroDeco"></div>
     </div>
 
     <button class="btn primary" style="margin-top:2px" onclick="startCreate()" id="createBtn"></button>
@@ -446,6 +447,7 @@ function mountIcons(){
   document.querySelectorAll('.chev').forEach(el=>{if(!el.dataset.done){el.innerHTML=icon('right',20);el.dataset.done=1;}});
   document.getElementById('createBtn').innerHTML=icon('plus',19)+' Create a game';
   document.getElementById('heroLbl').innerHTML=icon('clock',14)+' Chess clock';
+  document.getElementById('heroDeco').innerHTML=icon('clock',64);
   document.getElementById('shareBtn').innerHTML=icon('share',18)+' Share link';
   document.getElementById('randIco').innerHTML=icon('shuffle',15,'style="margin-right:6px"');
   document.getElementById('tcRowIco').innerHTML=icon('timer',20);
