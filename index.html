@@ -206,6 +206,19 @@
   .rc .src{font-size:12px;color:var(--mut);font-weight:600;display:flex;align-items:center;gap:6px;}
   .rc .val{font-size:26px;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums;}
   .rc .pk{font-size:11px;color:var(--dim);margin-top:2px;}
+  .rc{position:relative;}
+  .rc.tap{cursor:pointer;}
+  .rc.tap:active{transform:scale(.98);}
+  .rc .more{position:absolute;top:11px;right:11px;color:var(--dim);}
+  .rc .more svg{width:15px;height:15px;transform:rotate(90deg);}
+  .popup{position:fixed;left:50%;top:50%;transform:translate(-50%,-46%) scale(.96);width:min(300px,86vw);background:var(--bg2);border:1px solid var(--line2);border-radius:18px;padding:16px 18px;z-index:110;opacity:0;pointer-events:none;transition:.2s cubic-bezier(.32,.72,0,1);box-shadow:0 20px 55px rgba(0,0,0,.6);}
+  .popup.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+  .pop-h{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;margin-bottom:6px;}
+  .pop-h .lbl{color:var(--mut);font-weight:600;}
+  .pop-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:15px;}
+  .pop-row:last-child{border-bottom:none;}
+  .pop-row .t{color:var(--mut);font-weight:600;}
+  .pop-row b{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;}
   .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
 
   .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + var(--safe-b) + 18px);transform:translateX(-50%) translateY(20px);background:var(--card2);border:1px solid var(--line2);color:var(--txt);padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:.3s;z-index:120;pointer-events:none;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:88%;text-align:center;}
@@ -363,12 +376,7 @@
       <div class="verified" id="veriBadge">Verified identity &mdash; Didit KYC</div>
     </div>
     <div class="sec-title">Ratings</div>
-    <div class="ratings">
-      <div class="rc"><div class="src"><span class="dot" style="background:var(--gold)"></span>FIDE</div><div class="val">2145</div><div class="pk">Standard &middot; peak 2201</div></div>
-      <div class="rc"><div class="src"><span class="dot" style="background:#6ea84f"></span>Chess.com</div><div class="val">2260</div><div class="pk">Rapid &middot; peak 2314</div></div>
-      <div class="rc"><div class="src"><span class="dot" style="background:#c9c9c9"></span>Lichess</div><div class="val">2310</div><div class="pk">Blitz &middot; peak 2388</div></div>
-      <div class="rc"><div class="src"><span class="dot" style="background:var(--blue)"></span>Club</div><div class="val">1890</div><div class="pk">Tel-Aviv CC</div></div>
-    </div>
+    <div class="ratings" id="ratings"></div>
     <div class="sec-title">Identity</div>
     <div class="card">
       <div class="kv"><span class="k">Full name</span><span class="v">Maximillian Montgomery</span></div>
@@ -409,8 +417,9 @@
   <button class="tab" data-tab="events" onclick="go('events')"><span data-ic="trophy"></span>Events</button>
 </nav>
 
-<div class="scrim" id="scrim" onclick="closeSheet()"></div>
+<div class="scrim" id="scrim" onclick="closeOverlays()"></div>
 <div class="sheet" id="sheet"></div>
+<div class="popup" id="popup"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -779,6 +788,36 @@ function toggleDob(){
   document.getElementById('dobEye').innerHTML=icon(blurred?'eye':'eyeoff',16);
 }
 
+/* ============ RATINGS ============ */
+const RATINGS=[
+  {name:'FIDE',dot:'var(--gold)',main:2145,fmt:'Classic',peak:2201,
+    sub:[['Rapid',2098],['Blitz',2041]]},
+  {name:'Chess.com',dot:'#6ea84f',main:2260,fmt:'Rapid',peak:2314,
+    sub:[['Bullet',2180],['Blitz',2225],['Rapid',2260]]},
+  {name:'Lichess',dot:'#c9c9c9',main:2310,fmt:'Blitz',peak:2388,
+    sub:[['Bullet',2260],['Blitz',2310],['Rapid',2295]]},
+  {name:'Club',dot:'var(--blue)',main:1890,fmt:'Tel-Aviv CC',sub:[]},
+];
+function renderRatings(){
+  document.getElementById('ratings').innerHTML=RATINGS.map((r,i)=>`
+    <div class="rc${r.sub.length?' tap':''}" ${r.sub.length?`onclick="openRating(${i})"`:''}>
+      ${r.sub.length?`<span class="more">${icon('right',15)}</span>`:''}
+      <div class="src"><span class="dot" style="background:${r.dot}"></span>${r.name}</div>
+      <div class="val">${r.main}</div>
+      <div class="pk">${r.fmt}${r.peak?` &middot; peak ${r.peak}`:''}</div>
+    </div>`).join('');
+}
+function openRating(i){
+  const r=RATINGS[i]; if(!r.sub.length) return;
+  document.getElementById('popup').innerHTML=`
+    <div class="pop-h"><span class="dot" style="background:${r.dot}"></span>${r.name} <span class="lbl">ratings</span></div>
+    ${r.sub.map(([t,v])=>`<div class="pop-row"><span class="t">${t}</span><b>${v}</b></div>`).join('')}`;
+  document.getElementById('popup').classList.add('open');
+  document.getElementById('scrim').classList.add('open');
+}
+function closePopup(){document.getElementById('popup').classList.remove('open');}
+function closeOverlays(){closeSheet();closePopup();document.getElementById('scrim').classList.remove('open');}
+
 /* ============ SOUND ============ */
 let soundOn=true, actx=null;
 function beep(freq,dur){
@@ -864,6 +903,7 @@ function toast(msg){const t=document.getElementById('toast');t.innerHTML=msg;t.c
 mountIcons();
 setAva();
 renderTournaments();
+renderRatings();
 updateTCRow();
 drawQR('qrId','https://gambit.chess/id/mikeday',25);
 document.getElementById('homeClockTime').textContent='05:00';
