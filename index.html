@@ -142,7 +142,7 @@
   .cside.top{transform:rotate(180deg);}
   .cside .who{position:absolute;top:26px;font-size:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--clk-idle-tx);display:flex;align-items:center;gap:8px;}
   .whotc{font-size:11px;font-weight:800;letter-spacing:.5px;padding:2px 8px;border-radius:20px;border:1px solid currentColor;opacity:.75;font-variant-numeric:tabular-nums;}
-  .cside .tt{font-variant-numeric:tabular-nums;font-size:84px;font-weight:800;letter-spacing:-3px;color:#5c6478;line-height:1;}
+  .cside .tt{font-variant-numeric:tabular-nums;font-size:clamp(78px,26vw,108px);font-weight:800;letter-spacing:-3px;color:#5c6478;line-height:1;}
   .cside .turn{position:absolute;bottom:52px;font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;opacity:0;}
   .cside .moves{position:absolute;bottom:26px;font-size:12px;color:var(--clk-idle-tx);font-weight:600;}
   .cside.run{background:linear-gradient(180deg,var(--clk-run-a),var(--clk-run-b));box-shadow:0 0 0 2px rgba(255,210,63,.25),0 10px 40px rgba(245,179,1,.25);}
@@ -152,6 +152,11 @@
   .cside.run .turn{opacity:1;color:var(--clk-run-tx);}
   .cside.idle{opacity:.9;}
   .cside.dim{opacity:.42;}
+  .cside.run.danger{animation:lowflash .4s steps(1,end) infinite;box-shadow:0 0 0 2px rgba(255,59,59,.4),0 10px 40px rgba(255,59,59,.35);}
+  @keyframes lowflash{
+    0%,49%  {background:linear-gradient(180deg,#ff5757,#e01f1f);}
+    50%,100%{background:linear-gradient(180deg,var(--clk-run-a),var(--clk-run-b));}
+  }
   .cside.flag{background:#25090b;}
   .cside.flag .tt{color:#ff5757;}
   .cside.flag .who{color:#7a2a2c;}
@@ -718,11 +723,52 @@ function drawQR(elId,text,n){
   el.innerHTML=cells.join('');
 }
 
+/* ============ WAKE LOCK (keep screen on while clock runs) ============ */
+let wakeLock=null;
+async function requestWake(){
+  try{
+    if('wakeLock' in navigator && !wakeLock){
+      wakeLock=await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release',()=>{wakeLock=null;});
+    }
+  }catch(e){}
+}
+async function releaseWake(){
+  try{ if(wakeLock){ const w=wakeLock; wakeLock=null; await w.release(); } }catch(e){}
+}
+// OS drops the lock when the tab is backgrounded — re-acquire on return,
+// and resync the clock since time kept running while we were away.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && clock.run && !clock.paused){
+    requestWake();
+    const rem=syncRunning();
+    paintClock();
+    if(rem<=0) flag();
+  }
+});
+
 /* ============ CHESS CLOCK ============ */
-let clock={top:300,bot:300,baseSec:300,inc:0,run:null,paused:true,mvTop:0,mvBot:0,label:'5+0',tick:null};
+let clock={top:300,bot:300,baseSec:300,inc:0,run:null,paused:true,mvTop:0,mvBot:0,label:'5+0',raf:null};
 let activeGame=null;
-function fmt(s){s=Math.max(0,s);const m=Math.floor(s/60),ss=Math.floor(s%60);
-  return (m<10?'0'+m:m)+':'+(ss<10?'0'+ss:ss);}
+const LOW=10;                      // panic threshold, seconds
+let lastBeepSec=null;
+// under 10s show seconds + hundredths (9.87), otherwise MM:SS
+function fmt(s){
+  s=Math.max(0,s);
+  if(s<LOW){
+    const sec=Math.floor(s);
+    return sec+'.'+String(Math.floor((s-sec)*100)).padStart(2,'0');
+  }
+  const m=Math.floor(s/60),ss=Math.floor(s%60);
+  return (m<10?'0'+m:m)+':'+(ss<10?'0'+ss:ss);
+}
+function lowTimeCheck(){
+  const t=clock.run==='top'?clock.top:clock.bot;
+  if(t>0&&t<LOW){
+    const sec=Math.ceil(t);
+    if(sec!==lastBeepSec){ lastBeepSec=sec; beep(1250,0.06); }   // tick each second
+  } else lastBeepSec=null;
+}
 function paintClock(){
   document.getElementById('tt-top').textContent=fmt(clock.top);
   document.getElementById('tt-bot').textContent=fmt(clock.bot);
@@ -732,7 +778,8 @@ function paintClock(){
   document.getElementById('whotc-bot').textContent=clock.label;
   const T=document.getElementById('cs-top'),B=document.getElementById('cs-bot');
   const cls=(side,val)=>'cside'+(side==='top'?' top':'')+
-     (clock.run===side?' run':(clock.run?' dim':' idle'))+(val<=0?' flag':'');
+     (clock.run===side?' run':(clock.run?' dim':' idle'))+
+     (clock.run===side&&val>0&&val<LOW?' danger':'')+(val<=0?' flag':'');
   T.className=cls('top',clock.top); B.className=cls('bot',clock.bot);
 }
 function mountClock(){
@@ -741,20 +788,38 @@ function mountClock(){
 }
 function setClock(sec,inc,label){
   stopTick();
-  clock={top:sec,bot:sec,baseSec:sec,inc:inc,run:null,paused:true,mvTop:0,mvBot:0,label:label,tick:null};
+  clock={top:sec,bot:sec,baseSec:sec,inc:inc,run:null,paused:true,mvTop:0,mvBot:0,label:label,raf:null};
+  lastBeepSec=null;
   const pb=document.getElementById('btnPause'); if(pb) pb.innerHTML=icon('pause',20);
   paintClock();
 }
-function stopTick(){ if(clock.tick){clearInterval(clock.tick);clock.tick=null;} }
+// Time is derived from an absolute anchor, not accumulated per frame:
+// stays correct even if the interval is throttled or the app is backgrounded.
+function armAnchor(){
+  clock.anchor=performance.now();
+  clock.anchorVal=(clock.run==='top')?clock.top:clock.bot;
+}
+function syncRunning(){
+  if(!clock.run||clock.paused||clock.anchor==null) return;
+  const rem=clock.anchorVal-(performance.now()-clock.anchor)/1000;
+  if(clock.run==='top') clock.top=Math.max(0,rem); else clock.bot=Math.max(0,rem);
+  return rem;
+}
+function stopTick(){
+  if(clock.raf){clearInterval(clock.raf);clock.raf=null;}
+  releaseWake();
+}
 function startTick(){
   stopTick(); clock.paused=false;
-  let last=performance.now();
-  clock.tick=setInterval(()=>{
-    const now=performance.now(),dt=(now-last)/1000;last=now;
-    if(clock.run==='top'){clock.top-=dt; if(clock.top<=0){clock.top=0;flag();}}
-    else if(clock.run==='bot'){clock.bot-=dt; if(clock.bot<=0){clock.bot=0;flag();}}
+  armAnchor();
+  requestWake();                       // keep screen awake while running
+  clock.raf=setInterval(()=>{
+    if(clock.paused||!clock.run) return;
+    const rem=syncRunning();
+    if(rem<=0){ paintClock(); flag(); return; }
+    lowTimeCheck();
     paintClock();
-  },100);
+  },40);                               // 25fps — smooth enough for hundredths
 }
 function flag(){ stopTick(); clock.paused=true; navigator.vibrate&&navigator.vibrate(200);
   toast((clock.top<=0?'Black':'White')+' flagged'); }
@@ -763,8 +828,11 @@ function tapSide(side){
   if(clock.run===null){ clock.run = side==='top'?'bot':'top'; startTick(); beep(760,0.10); paintClock(); return; }
   if(clock.paused){ startTick(); paintClock(); return; }
   if(clock.run!==side) return;
+  syncRunning();                                   // commit exact remaining first
   if(side==='top'){ clock.top+=clock.inc; clock.mvTop++; clock.run='bot'; }
   else            { clock.bot+=clock.inc; clock.mvBot++; clock.run='top'; }
+  armAnchor();                                     // re-anchor for the new side
+  lastBeepSec=null;
   beep(880,0.09);
   navigator.vibrate&&navigator.vibrate(15);
   paintClock();
@@ -774,7 +842,7 @@ function clockAction(a,e){ e&&e.stopPropagation();
     if(clock.run===null) return;
     const pb=document.getElementById('btnPause');
     if(clock.paused){startTick();pb.innerHTML=icon('pause',20);}
-    else{stopTick();clock.paused=true;pb.innerHTML=icon('play',20);}
+    else{syncRunning();stopTick();clock.paused=true;pb.innerHTML=icon('play',20);}
     paintClock();
   }
   if(a==='reset'){ setClock(clock.baseSec,clock.inc,clock.label); }
