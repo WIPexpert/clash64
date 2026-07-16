@@ -438,7 +438,7 @@
 /* ============ BUILD STAMP ============ */
 // Shown on Chess ID. Bump `v` together with CACHE in sw.js on every deploy —
 // if the stamp still shows the old value, the PWA is serving a stale cache.
-const BUILD={d:'16.07.26',v:11};
+const BUILD={d:'16.07.26',v:12};
 
 /* ============ ICON PACK (lucide-style, inline SVG) ============ */
 const ICONS={
@@ -1007,7 +1007,14 @@ if('serviceWorker' in navigator){
     if(!hadController||reloading) return;   // first install controls the page; nothing stale to swap
     reloading=true; location.reload();
   });
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').then((reg)=>{
+      reg.update();                                    // check for a new build on every launch
+      document.addEventListener('visibilitychange',()=>{
+        if(document.visibilityState==='visible') reg.update();
+      });
+    }).catch(()=>{});
+  });
 }
 </script>
 </body>
